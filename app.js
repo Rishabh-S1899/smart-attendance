@@ -11,14 +11,14 @@ const dotenv = require('dotenv');
 
 dotenv.config();
 
-// 1. Initialize Express and Router FIRST
+// 1. Initialize Express and Router (ONLY ONCE)
 const app = express();
-const router = express.Router(); // <--- THIS MUST BE HERE (Before router.use)
+const router = express.Router();
 
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(express.json({ limit: '10mb' }));
 
-// 2. Database Connection
+// 2. Database Connection (ONLY ONCE)
 const db = mysql.createConnection({
   host: process.env.DB_HOST || 'localhost',
   user: process.env.DB_USER || 'root',
@@ -35,7 +35,7 @@ db.connect((err) => {
   }
 });
 
-// 3. Demo Mode Authentication (Now safe to use 'router')
+// 3. Demo Mode Authentication
 const authenticate = (req, res, next) => {
   req.email = "demo123@iitmandi.ac.in"; 
   req.name = "Demo Student IIT Mandi"; 
@@ -43,12 +43,10 @@ const authenticate = (req, res, next) => {
   next();
 };
 
-router.use(authenticate); // <--- NOW this will work because 'router' exists
+// Apply auth to router
+router.use(authenticate);
 
-dotenv.config();
-
-// --- FIX: Robust Firebase Initialization for Vercel ---
-// This handles the newline characters in the private key correctly
+// 4. Firebase Initialization
 const serviceAccountKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY
   ? {
       projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
@@ -64,10 +62,11 @@ if (!admin.apps.length) {
     });
   } else {
     admin.initializeApp(); // Fallback for local dev
-    console.warn('⚠️ Firebase Admin initialized without explicit credentials. Ensure GOOGLE_APPLICATION_CREDENTIALS is set if running locally.');
+    console.warn('⚠️ Firebase Admin initialized without explicit credentials.');
   }
 }
 
+// 5. Helper Functions
 function insertIntoSortedArray(sortedArray, [value, string, val2]) {
   const index = sortedArray.findIndex(([val, str]) => val > value);
   const insertIndex = index !== -1 ? index : sortedArray.length;
@@ -75,31 +74,7 @@ function insertIntoSortedArray(sortedArray, [value, string, val2]) {
   return sortedArray;
 }
 
-// Ensure you use Environment Variables for DB credentials in Vercel!
-const db = mysql.createConnection({
-  host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || 'Vayun314',
-  database: process.env.DB_NAME || 'DP_test',
-  port: process.env.DB_PORT || 3306
-});
-
-const app = express();
-app.use(bodyParser.urlencoded({ extended: false }));
-app.use(express.json({ limit: '10mb' }));
-
-const router = express.Router();
-
-db.connect((err) => {
-  if (err) {
-      console.error('❌ Database connection failed:', err.message);
-  } else {
-      console.log('✅ Connected to database');
-  }
-});
-
-// Middleware to check authentication
-router.use(authenticate);
+// --- ROUTES START HERE ---
 
 router.post('/verify_attendance', (req, res) => {
   const { year, month, date, courseName } = req.query;
@@ -279,11 +254,10 @@ router.get('/attendance', (req, res) => {
   });
 });
 
-// --- FIX: Logic corrected to avoid race conditions ---
 router.post('/delete_image', async (req, res) => {
   const { courseName, studentId, imageNumber, year, month, date } = req.body;
 
-  // We need to use promises here to ensure order, otherwise 'nullSql' runs too early
+  // We need to use promises here to ensure order
   const moveImages = async () => {
     for (let i = imageNumber; i < 5; i++) {
       const currentColumnName = `pic_${i}`;
@@ -294,7 +268,6 @@ router.post('/delete_image', async (req, res) => {
           WHERE student_id = ? and attendance_date = '${year}-${month}-${date}'
         `;
 
-      // Wrap query in promise
       await new Promise((resolve) => {
         db.query(fetchNextImageSql, [studentId], (fetchErr, fetchResult) => {
           if (fetchErr) {
@@ -381,7 +354,6 @@ router.post('/delete_image', async (req, res) => {
 });
 
 router.get('/professor', (req, res) => {
-  // Ensure req.email exists (set by middleware)
   if (!req.email) return res.status(401).send('Unauthorized');
   
   const professorId = req.email.split('@')[0];
@@ -400,7 +372,6 @@ router.get('/professor', (req, res) => {
 router.get('/search', (req, res) => {
   const searchTerm = req.query.q;
   const professorId = req.email.split('@')[0];
-  // Note: Using template literals like this is prone to SQL Injection. Use ? placeholders instead.
   const sql = `SELECT * FROM professor_courses WHERE course_name LIKE '%${searchTerm}%' and professor_id='${professorId}'`;
   
   db.query(sql, (err, results) => {
@@ -502,7 +473,7 @@ router.post(
       const studentId = req.email.slice(0, 6);
       const imageBuffer = req.file.buffer;
 
-      // 1. Call External Python Service (Ensure this URL is correct for Prod)
+      // Call External Python Service
       const response = await axios
         .post('http://127.0.0.1:5000/student_upload', {
           image: imageBuffer.toString('base64'),
@@ -511,17 +482,8 @@ router.post(
           console.log(error.message);
         });
 
-      // --- CRITICAL VERCEL FIX ---
-      // Vercel is READ-ONLY. You cannot save files to ./public/images/
-      // You MUST use Firebase Storage or AWS S3 here.
-      // I have commented this out to prevent your app from crashing.
-      
+      // Filesystem writing disabled for Vercel
       let p = "placeholder_url_replace_with_firebase_storage_url";
-      /* let currentDate = new Date();
-      let formattedDateTime = ...;
-      fs.writeFileSync(`./public/images/${studentId}_${formattedDateTime}_ground_truth.jpg`, imageBuffer);
-      p = `public/images/${studentId}_${formattedDateTime}_ground_truth.jpg`;
-      */
       console.warn("⚠️ File writing disabled (Vercel Read-Only). Implement Firebase Storage upload here.");
 
       db.query(
@@ -587,7 +549,6 @@ router.post('/unenrol', (req, res) => {
 
 router.get('/attendance_for_student', (req, res) => {
   const courseName = req.query.courseName;
-  // Ensure courseName exists before replace
   if (!courseName) return res.status(400).send("courseName required");
   
   const tableName = `${courseName.replace(/\s+/g, '_').replace(/\W/g, '_')}`;
@@ -643,7 +604,6 @@ router.get('/calender-attendance', (req, res) => {
 
 router.post('/check_appload', async (req, res) => {
   try {
-    // WARNING: This file likely won't exist on Vercel
     if (!fs.existsSync('images/pic1.jpeg')) {
         return res.status(404).send("Demo image not found on server.");
     }
@@ -681,7 +641,6 @@ router.post(
   }
 );
 
-// --- FIX: Fixed Missing Parenthesis in appload_video ---
 router.post('/appload_video', upload.single('video'), async (req, res) => {
   try {
     const { course_name, date } = req.body;
@@ -701,7 +660,6 @@ router.post('/appload_video', upload.single('video'), async (req, res) => {
           WHERE se.course_id = "${course_name}"
           `;
 
-    // --- FIX: Added correct closing structure for nested query ---
     db.query(sql, (err, result) => {
       if (err) return console.log(err.message);
       
@@ -763,13 +721,6 @@ router.post('/appload_video', upload.single('video'), async (req, res) => {
           }
         }
 
-        // WARN: Filesystem writing (fs.writeFileSync) will fail on Vercel.
-        // Commented out to prevent crash. Use Firebase Storage instead.
-        /* for (const key in hashMap) {
-            // ... fs.writeFileSync logic ...
-        } 
-        */
-
         for (const key in hashMap) {
           let p_a =
             hashMap[key][0][0] === Number.MAX_SAFE_INTEGER ? 'A' : 'P';
@@ -789,124 +740,13 @@ router.post('/appload_video', upload.single('video'), async (req, res) => {
             console.log(result);
           });
         }
-      }); // Closes Inner db.query
-    }); // Closes Outer db.query
+      });
+    });
   } catch (error) {
     console.log(error);
   }
   res.send('working');
 });
-
-router.post('/appload_images', upload.array('images'), async (req, res) => {
-  try {
-    const { course_name, date } = req.body;
-    const images = req.files.map((file) => file.buffer.toString('base64'));
-    let data = [];
-
-    for (let i = 0; i < images.length; i++) {
-      const response = await axios.post('http://127.0.0.1:5000/upload', {
-        image: images[i],
-      });
-      data = data.concat(response.data);
-    }
-
-    let hashMap2 = {};
-    const sql = `
-          SELECT s.*
-          FROM student s
-          INNER JOIN student_enrolment se ON s.student_id = se.student_id
-          WHERE se.course_id = "${course_name}"
-          `;
-
-    db.query(sql, (err, result) => {
-      if (err) return console.log(err.message);
-      let hashMap = {};
-      result.forEach((row) => {
-        hashMap[row.student_id.toLowerCase()] = JSON.parse(row.Student_vector);
-        hashMap2[row.student_id.toLowerCase()] = row.pic;
-      });
-
-      let f;
-      let k = [];
-      for (let i = 0; i < data.length; i++) {
-        let min = Number.MAX_SAFE_INTEGER;
-        let min_id;
-        for (let key in hashMap) {
-          let sumOfSquares = 0;
-          let list2 = hashMap[key];
-          for (let j = 0; j < list2.length; j++) {
-            sumOfSquares += Math.pow(data[i][1][j] - list2[j], 2);
-          }
-          f = Math.sqrt(sumOfSquares);
-          if (f < min) {
-            min = f;
-            min_id = key;
-          }
-        }
-        k.push([min, min_id, data[i][0], data[i][1]]);
-      }
-
-      const sql = `SELECT student_id FROM student_enrolment WHERE course_id='${course_name}'`;
-      data = k;
-      hashMap = {};
-
-      db.query(sql, (err, result) => {
-        if (err) return console.log(err.message);
-        result.forEach((row) => {
-          hashMap[row.student_id] = [
-            [Number.MAX_SAFE_INTEGER, '', []],
-            [Number.MAX_SAFE_INTEGER, '', []],
-            [Number.MAX_SAFE_INTEGER, '', []],
-            [Number.MAX_SAFE_INTEGER, '', []],
-            [Number.MAX_SAFE_INTEGER, '', []],
-          ];
-        });
-
-        for (let i = 0; i < data.length; i++) {
-          let key = data[i][1];
-          if (hashMap.hasOwnProperty(key)) {
-            let sortedList = insertIntoSortedArray(hashMap[key], [
-              data[i][0],
-              data[i][2],
-              data[i][3],
-            ]);
-            if (sortedList.length > 5) {
-              sortedList = sortedList.slice(0, 5);
-            }
-            hashMap[key] = sortedList;
-          }
-        }
-
-        /* // WARN: Read-Only Filesystem Logic Commented Out
-        let currentDate = new Date();
-        ...
-        */
-
-        for (const key in hashMap) {
-          let p_a =
-            hashMap[key][0][0] === Number.MAX_SAFE_INTEGER ? 'A' : 'P';
-          const vector = JSON.stringify([
-            hashMap[key][0][0],
-            hashMap[key][1][0],
-            hashMap[key][2][0],
-            hashMap[key][3][0],
-            hashMap[key][4][0],
-          ]);
-          const sql = `INSERT INTO ${course_name}
-                (student_id, p_or_a, vector, pic_1, pic_2, pic_3, pic_4, pic_5, attendance_date, ground_truth, vector_1, vector_2,vector_3,vector_4,vetcor_5) VALUES
-                ("${key}", "${p_a}", "${vector}", "${hashMap[key][0][1]}","${hashMap[key][1][1]}","${hashMap[key][2][1]}","${hashMap[key][3][1]}","${hashMap[key][4][1]}","${date}","${hashMap2[key]}","${JSON.stringify(hashMap[key][0][2])}","${JSON.stringify(hashMap[key][1][2])}","${JSON.stringify(hashMap[key][2][2])}","${JSON.stringify(hashMap[key][3][2])}","${JSON.stringify(hashMap[key][4][2])}");`;
-          db.query(sql, (err, result) => {
-            if (err) return console.log(err.message);
-            console.log(result);
-          });
-        }
-      });
-    });
-  } catch (error) {}
-  res.send('working');
-});
-
-// ... (Rest of your routes like process_vector, mark_attendence, add_new_course remain mostly standard)
 
 router.post('/mark_attendence', (req, res) => {
   const { course_name, data } = req.body;
@@ -991,7 +831,6 @@ router.get('/createdb', (req, res) => {
 
 app.use('/api', router);
 
-// Serve static files (Note: user uploads won't persist here on Vercel)
 app.use(express.static('public'));
 app.use(express.static('views'));
 
