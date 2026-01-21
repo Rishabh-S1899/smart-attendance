@@ -6,7 +6,28 @@ const axios = require('axios');
 const multer = require('multer');
 const path = require('path');
 const upload = multer(); // Stores files in memory (Good for Vercel)
-const { authenticate } = require('./authmiddleware'); // Ensure this file exists
+// const { authenticate } = require('./authmiddleware'); // Ensure this file exists
+// --- DEMO MODE: AUTHENTICATION BYPASS ---
+
+// Create a fake authentication function
+const authenticate = (req, res, next) => {
+  // 1. Hardcode a dummy email that matches your logic (must be > 6 chars)
+  req.email = "demo123@iitmandi.ac.in"; 
+  
+  // 2. Hardcode a dummy name that passes your split("IIT Mandi") logic
+  req.name = "Demo Student IIT Mandi"; 
+  
+  // 3. Log it so you know it's happening
+  console.log(`⚠️ DEMO MODE: Automatically logged in as ${req.email}`);
+  
+  // 4. Proceed to the next function
+  next();
+};
+
+// Apply this fake auth to all routes
+router.use(authenticate);
+
+
 const admin = require('firebase-admin');
 const dotenv = require('dotenv');
 
