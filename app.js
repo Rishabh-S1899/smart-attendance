@@ -589,7 +589,7 @@ router.post('/check_attendance_date', upload.array('images'), async (req, res) =
   const { course_name, date } = req.body;
   console.log("Endpoint has been hit")
   const sql = `SELECT COUNT(*) AS count FROM ${course_name} WHERE attendance_date = ?`;
-  db.query(sql, [date], (error, results) => {
+  db.query(sql, [date], (error, results)) => {
       if (error) {
           console.error('Error querying database:', error);
           res.status(500).json({ error: 'Internal server error' });
@@ -602,8 +602,10 @@ router.post('/check_attendance_date', upload.array('images'), async (req, res) =
       } else {
           res.json({ attendance_marked: 'no' });
       }
-  });
-})
+  }
+});
+
+
 
 router.post('/appload_video', upload.single('video'), async (req, res) => {
   try {
