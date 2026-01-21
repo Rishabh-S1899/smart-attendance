@@ -2,17 +2,33 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <script src="js/firebase.js" type="module"></script>
-    <script src = "js/check_authentication.js" type = "module"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>College Attendance System</title>
+    <title>College Attendance System - Demo Mode</title>
     <link rel="stylesheet" type="text/css" href="/css/homepage.css">
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        /* Optional: Add a demo badge */
+        .demo-badge {
+            background-color: #ff9800;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+            font-family: 'Poppins', sans-serif;
+        }
+    </style>
 </head>
 <body>
+    <div class="demo-badge">resume_demo_mode: enabled</div>
+
     <div class="header">
         <div class="greeting">
             <h1> IIT Mandi Attendance system</h1>
@@ -20,13 +36,6 @@
         <div class="logo">
         <img src="/images/logo_hires.png">
         </div>
-        <!-- <div class="nav-links">
-            
-            <ul>
-                <li> <a href="#"> ABOUT</a></li>
-                <li> <a href="#"> CONTACT</a></li>       
-            </ul>
-        </div> -->
         <div class="viml">
             <img src="/images/viml.jpg" alt="">
         </div>
@@ -40,21 +49,7 @@
             </div>
             <div class="course-list">
                 <div class="course">
-                    <!-- <h2><a href="/course-portal.html?courseName=Course-1: IC-000">Course-1: IC-000</a></h2>
-                    <p>Course Slot : A</p> -->
-                </div>
-                <!-- <div class="course">
-                    <h2><a href="/course-portal.html?courseName=Course-2: IC-001">Course-2: IC-001</a></h2>
-                    <p>Course Slot : B</p>
-                </div>
-                <div class="course">
-                    <h2><a href="/course-portal.html?courseName=Course-3: IC-002">Course-3: IC-002</a></h2>
-                    <p>Course Slot : C</p>
-                </div>
-                <div class="course">
-                    <h2><a href="/course-portal.html?courseName=Course-4: IC-003">Course-4: IC-003</a></h2>
-                    <p>Course Slot : D</p>
-                </div> -->
+                   </div>
             </div>
             <div class="see-all-courses">
                 <a href="#">See All Courses >></a>
