@@ -5,27 +5,45 @@ const fs = require('fs');
 const axios = require('axios');
 const multer = require('multer');
 const path = require('path');
-const upload = multer(); // Stores files in memory (Good for Vercel)
-// const { authenticate } = require('./authmiddleware'); // Ensure this file exists
-// --- DEMO MODE: AUTHENTICATION BYPASS ---
+const upload = multer();
+const admin = require('firebase-admin');
+const dotenv = require('dotenv');
 
-// Create a fake authentication function
+dotenv.config();
+
+// 1. Initialize Express and Router FIRST
+const app = express();
+const router = express.Router(); // <--- THIS MUST BE HERE (Before router.use)
+
+app.use(bodyParser.urlencoded({ extended: false }));
+app.use(express.json({ limit: '10mb' }));
+
+// 2. Database Connection
+const db = mysql.createConnection({
+  host: process.env.DB_HOST || 'localhost',
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD || 'Vayun314',
+  database: process.env.DB_NAME || 'DP_test',
+  port: process.env.DB_PORT || 3306
+});
+
+db.connect((err) => {
+  if (err) {
+      console.error('❌ Database connection failed:', err.message);
+  } else {
+      console.log('✅ Connected to database');
+  }
+});
+
+// 3. Demo Mode Authentication (Now safe to use 'router')
 const authenticate = (req, res, next) => {
-  // 1. Hardcode a dummy email that matches your logic (must be > 6 chars)
   req.email = "demo123@iitmandi.ac.in"; 
-  
-  // 2. Hardcode a dummy name that passes your split("IIT Mandi") logic
   req.name = "Demo Student IIT Mandi"; 
-  
-  // 3. Log it so you know it's happening
   console.log(`⚠️ DEMO MODE: Automatically logged in as ${req.email}`);
-  
-  // 4. Proceed to the next function
   next();
 };
 
-// Apply this fake auth to all routes
-router.use(authenticate);
+router.use(authenticate); // <--- NOW this will work because 'router' exists
 
 
 const admin = require('firebase-admin');
