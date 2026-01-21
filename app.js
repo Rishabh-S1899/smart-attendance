@@ -45,10 +45,6 @@ const authenticate = (req, res, next) => {
 
 router.use(authenticate); // <--- NOW this will work because 'router' exists
 
-
-const admin = require('firebase-admin');
-const dotenv = require('dotenv');
-
 dotenv.config();
 
 // --- FIX: Robust Firebase Initialization for Vercel ---
